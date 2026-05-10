@@ -1,0 +1,171 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>前山牧區事工人員靈修會報名</title>
+    <!-- 使用 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 使用 Lucide 圖示 -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-stone-50 min-h-screen py-8 px-4">
+
+    <div class="max-w-md mx-auto">
+        <!-- 標題區域 -->
+        <div class="bg-emerald-800 text-white rounded-t-2xl p-6 shadow-lg">
+            <h1 class="text-2xl font-bold text-center mb-4 text-white">前山牧區事工人員靈修會</h1>
+            <div class="space-y-2 text-emerald-100 text-sm">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="calendar" class="w-4 h-4 text-emerald-300"></i>
+                    <span class="font-semibold">日期：5/17（日）08:00-12:00</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <i data-lucide="clock" class="w-4 h-4 text-emerald-300"></i>
+                    <span>報名截止：5/14（四）</span>
+                </div>
+                <div class="flex items-start gap-2">
+                    <i data-lucide="info" class="w-4 h-4 mt-1 flex-shrink-0 text-emerald-300"></i>
+                    <p class="leading-relaxed">
+                        請本會所有事工人員（職務同工、領會、教員、領詩、各詩班、領讀、司琴、謝飯、音控、接待、炊事、接送、打掃、團契幹部、插花...等）務必撥空參加。
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 報名輸入區域 -->
+        <div class="bg-white p-6 shadow-md border-x border-stone-200">
+            <form id="regForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">報名者姓名</label>
+                    <div class="relative">
+                        <input type="text" id="userName" placeholder="請輸入您的姓名" required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all">
+                        <i data-lucide="user-plus" class="absolute right-3 top-3.5 text-gray-400 w-5 h-5"></i>
+                    </div>
+                </div>
+                <button type="submit"
+                    class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg transition-all shadow-md flex items-center justify-center gap-2 active:scale-95">
+                    提交報名
+                </button>
+            </form>
+
+            <div id="successMsg" class="hidden mt-4 p-3 bg-green-100 text-green-700 rounded-lg flex items-center gap-2 text-sm fade-in">
+                <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                報名成功！感謝您的參與。
+            </div>
+        </div>
+
+        <!-- 勸勉文字 -->
+        <div class="bg-stone-100 p-4 border-l-4 border-emerald-600 italic text-stone-600 text-sm mb-6 shadow-sm">
+            「讓教會所有聖事工更符合神的旨意，蒙神親自紀念。」
+        </div>
+
+        <!-- 報名名單顯示 -->
+        <div class="bg-white rounded-b-2xl shadow-lg overflow-hidden border border-stone-200">
+            <div class="bg-stone-100 px-6 py-3 border-b border-stone-200 flex justify-between items-center">
+                <div class="flex items-center gap-2 text-stone-700 font-bold">
+                    <i data-lucide="users" class="w-5 h-5"></i>
+                    <span>已報名名單</span>
+                </div>
+                <span id="countTag" class="bg-emerald-100 text-emerald-700 text-xs px-2 py-1 rounded-full font-bold">
+                    共 0 人
+                </span>
+            </div>
+
+            <div id="listContainer" class="max-h-[400px] overflow-y-auto">
+                <!-- 名單會動態插入在這裡 -->
+            </div>
+        </div>
+
+        <footer class="mt-8 text-center text-gray-400 text-xs pb-8">
+            真耶穌教會大溪教會職務會 製
+        </footer>
+    </div>
+
+    <script>
+        // 初始化 Lucide 圖示
+        lucide.createIcons();
+
+        const regForm = document.getElementById('regForm');
+        const userNameInput = document.getElementById('userName');
+        const listContainer = document.getElementById('listContainer');
+        const countTag = document.getElementById('countTag');
+        const successMsg = document.getElementById('successMsg');
+
+        let registrations = JSON.parse(localStorage.getItem('daxi_church_reg') || '[]');
+
+        function renderList() {
+            countTag.textContent = `共 ${registrations.length} 人`;
+            
+            if (registrations.length === 0) {
+                listContainer.innerHTML = `<div class="p-10 text-center text-gray-400 text-sm italic">目前尚無人報名，歡迎踴躍參加</div>`;
+                return;
+            }
+
+            listContainer.innerHTML = registrations.map((reg, index) => `
+                <div class="p-4 flex justify-between items-center hover:bg-stone-50 transition-colors group border-b border-gray-100 fade-in">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 font-bold text-xs">
+                            ${reg.name.substring(0, 1)}
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-800 text-lg">${reg.name}</span>
+                            <p class="text-[10px] text-gray-400">${reg.time} 已登記</p>
+                        </div>
+                    </div>
+                    <button onclick="removeName(${reg.id})" class="text-gray-300 hover:text-red-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `).join('');
+            
+            lucide.createIcons();
+        }
+
+        regForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = userNameInput.value.trim();
+            if (!name) return;
+
+            const now = new Date();
+            const timeStr = `${now.getMonth() + 1}/${now.getDate()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+            const newEntry = {
+                id: Date.now(),
+                name: name,
+                time: timeStr
+            };
+
+            registrations.unshift(newEntry);
+            localStorage.setItem('daxi_church_reg', JSON.stringify(registrations));
+            
+            userNameInput.value = '';
+            renderList();
+
+            // 顯示成功訊息
+            successMsg.classList.remove('hidden');
+            setTimeout(() => successMsg.classList.add('hidden'), 3000);
+        });
+
+        window.removeName = function(id) {
+            registrations = registrations.filter(r => r.id !== id);
+            localStorage.setItem('daxi_church_reg', JSON.stringify(registrations));
+            renderList();
+        }
+
+        // 初始渲染
+        renderList();
+    </script>
+</body>
+</html>
+
+```
+
