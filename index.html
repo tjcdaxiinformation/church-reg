@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>前山牧區事工人員靈修會報名</title>
-    <!-- 使用 Tailwind CSS CDN -->
+    <title>前山牧區事工人員靈修會報名 (雲端版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 使用 Lucide 圖示 -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; }
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        /* 自定義彈窗樣式 */
+        #confirmModal { background: rgba(0,0,0,0.5); }
     </style>
 </head>
 <body class="bg-stone-50 min-h-screen py-8 px-4">
@@ -33,7 +33,7 @@
                 <div class="flex items-start gap-2">
                     <i data-lucide="info" class="w-4 h-4 mt-1 flex-shrink-0 text-emerald-300"></i>
                     <p class="leading-relaxed">
-                        請本會所有事工人員（職務同工、領會、教員、領詩、各詩班、領讀、司琴、謝飯、音控、接待、炊事、接送、打掃、團契幹部、插花...等）務必撥空參加。
+                        請本會所有事工人員（職務同工、領會、教員...等）務必撥空參加。
                     </p>
                 </div>
             </div>
@@ -50,15 +50,14 @@
                         <i data-lucide="user-plus" class="absolute right-3 top-3.5 text-gray-400 w-5 h-5"></i>
                     </div>
                 </div>
-                <button type="submit"
-                    class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg transition-all shadow-md flex items-center justify-center gap-2 active:scale-95">
+                <button type="submit" id="submitBtn"
+                    class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg transition-all shadow-md flex items-center justify-center gap-2 active:scale-95 disabled:bg-stone-400">
                     提交報名
                 </button>
             </form>
 
-            <div id="successMsg" class="hidden mt-4 p-3 bg-green-100 text-green-700 rounded-lg flex items-center gap-2 text-sm fade-in">
-                <i data-lucide="check-circle-2" class="w-5 h-5"></i>
-                報名成功！感謝您的參與。
+            <div id="statusMsg" class="hidden mt-4 p-3 rounded-lg flex items-center gap-2 text-sm fade-in">
+                <!-- 訊息內容動態生成 -->
             </div>
         </div>
 
@@ -72,21 +71,21 @@
             <div class="bg-stone-100 px-6 py-3 border-b border-stone-200 flex justify-between items-center">
                 <div class="flex items-center gap-2 text-stone-700 font-bold">
                     <i data-lucide="users" class="w-5 h-5"></i>
-                    <span>已報名名單</span>
+                    <span>已報名名單 (雲端同步)</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <button onclick="exportToCSV()" class="text-[10px] bg-white border border-stone-300 hover:bg-stone-50 text-stone-600 px-2 py-1 rounded flex items-center gap-1 transition-colors">
                         <i data-lucide="download" class="w-3 h-3"></i>
-                        匯出名冊
+                        匯出
                     </button>
                     <span id="countTag" class="bg-emerald-100 text-emerald-700 text-xs px-2 py-1 rounded-full font-bold">
-                        共 0 人
+                        讀取中...
                     </span>
                 </div>
             </div>
 
             <div id="listContainer" class="max-h-[400px] overflow-y-auto">
-                <!-- 名單會動態插入在這裡 -->
+                <div class="p-10 text-center text-gray-400 text-sm italic">正在連線雲端名單...</div>
             </div>
         </div>
 
@@ -95,27 +94,88 @@
         </footer>
     </div>
 
-    <script>
-        // 初始化 Lucide 圖示
+    <!-- 刪除確認彈窗 -->
+    <div id="confirmModal" class="fixed inset-0 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-xs w-full">
+            <h3 class="text-lg font-bold mb-2">確定刪除？</h3>
+            <p class="text-gray-500 text-sm mb-6">這將會從雲端永久移除這筆報名資料。</p>
+            <div class="flex gap-3">
+                <button onclick="closeModal()" class="flex-1 py-2 bg-stone-100 text-stone-600 rounded-lg">取消</button>
+                <button id="finalDeleteBtn" class="flex-1 py-2 bg-red-500 text-white rounded-lg font-bold">刪除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase 配置 (由環境提供)
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        let currentUser = null;
+        let registrations = [];
+        let deleteId = null;
+
+        // 初始化 Lucide
         lucide.createIcons();
 
-        const regForm = document.getElementById('regForm');
-        const userNameInput = document.getElementById('userName');
-        const listContainer = document.getElementById('listContainer');
-        const countTag = document.getElementById('countTag');
-        const successMsg = document.getElementById('successMsg');
+        // 登入處理
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                showStatus("連線失敗，請稍後再試", "error");
+            }
+        };
 
-        let registrations = JSON.parse(localStorage.getItem('daxi_church_reg') || '[]');
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            if (user) {
+                startListening();
+            }
+        });
 
+        initAuth();
+
+        // 監聽雲端名單 (Rule 1: 特定路徑)
+        function startListening() {
+            const dataCol = collection(db, 'artifacts', appId, 'public', 'data', 'registrations');
+            onSnapshot(dataCol, (snapshot) => {
+                registrations = [];
+                snapshot.forEach(doc => {
+                    registrations.push({ id: doc.id, ...doc.data() });
+                });
+                // Rule 2: 在記憶體中排序 (按時間倒序)
+                registrations.sort((a, b) => b.timestamp - a.timestamp);
+                renderList();
+            }, (err) => {
+                showStatus("資料讀取權限限制", "error");
+            });
+        }
+
+        // 渲染列表
         function renderList() {
+            const listContainer = document.getElementById('listContainer');
+            const countTag = document.getElementById('countTag');
             countTag.textContent = `共 ${registrations.length} 人`;
-            
+
             if (registrations.length === 0) {
                 listContainer.innerHTML = `<div class="p-10 text-center text-gray-400 text-sm italic">目前尚無人報名，歡迎踴躍參加</div>`;
                 return;
             }
 
-            listContainer.innerHTML = registrations.map((reg, index) => `
+            listContainer.innerHTML = registrations.map(reg => `
                 <div class="p-4 flex justify-between items-center hover:bg-stone-50 transition-colors group border-b border-gray-100 fade-in">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 font-bold text-xs">
@@ -126,73 +186,92 @@
                             <p class="text-[10px] text-gray-400">${reg.time} 已登記</p>
                         </div>
                     </div>
-                    <button onclick="removeName(${reg.id})" class="text-gray-300 hover:text-red-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onclick="openDeleteModal('${reg.id}')" class="text-gray-300 hover:text-red-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
             `).join('');
-            
             lucide.createIcons();
         }
 
-        regForm.addEventListener('submit', (e) => {
+        // 提交報名
+        document.getElementById('regForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const name = userNameInput.value.trim();
+            if (!currentUser) return;
+
+            const nameInput = document.getElementById('userName');
+            const name = nameInput.value.trim();
             if (!name) return;
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
 
             const now = new Date();
             const timeStr = `${now.getMonth() + 1}/${now.getDate()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            const docId = Date.now().toString();
 
-            const newEntry = {
-                id: Date.now(),
-                name: name,
-                time: timeStr
-            };
-
-            registrations.unshift(newEntry);
-            localStorage.setItem('daxi_church_reg', JSON.stringify(registrations));
-            
-            userNameInput.value = '';
-            renderList();
-
-            // 顯示成功訊息
-            successMsg.classList.remove('hidden');
-            setTimeout(() => successMsg.classList.add('hidden'), 3000);
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'registrations', docId);
+                await setDoc(docRef, {
+                    name: name,
+                    time: timeStr,
+                    timestamp: Date.now(),
+                    userId: currentUser.uid
+                });
+                nameInput.value = '';
+                showStatus("報名成功！感謝參與。", "success");
+            } catch (err) {
+                showStatus("儲存失敗，請重試", "error");
+            } finally {
+                submitBtn.disabled = false;
+            }
         });
 
-        window.removeName = function(id) {
-            if(!confirm("確定要刪除這筆報名資料嗎？")) return;
-            registrations = registrations.filter(r => r.id !== id);
-            localStorage.setItem('daxi_church_reg', JSON.stringify(registrations));
-            renderList();
-        }
+        // 刪除功能
+        window.openDeleteModal = (id) => {
+            deleteId = id;
+            document.getElementById('confirmModal').classList.remove('hidden');
+        };
 
-        window.exportToCSV = function() {
-            if (registrations.length === 0) {
-                alert("目前尚無報名資料可匯出");
-                return;
+        window.closeModal = () => {
+            document.getElementById('confirmModal').classList.add('hidden');
+            deleteId = null;
+        };
+
+        document.getElementById('finalDeleteBtn').addEventListener('click', async () => {
+            if (!deleteId || !currentUser) return;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registrations', deleteId));
+                showStatus("已成功刪除", "success");
+            } catch (err) {
+                showStatus("刪除失敗", "error");
+            } finally {
+                closeModal();
             }
+        });
 
-            // 準備 CSV 內容 (加上 BOM 確保 Excel 開啟中文不編碼錯誤)
+        // 匯出 CSV
+        window.exportToCSV = () => {
+            if (registrations.length === 0) return;
             let csvContent = "\uFEFF姓名,報名時間\n";
             registrations.forEach(reg => {
                 csvContent += `${reg.name},${reg.time}\n`;
             });
-
-            // 建立下載連結
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            link.setAttribute("href", url);
-            link.setAttribute("download", "靈修會報名名冊.csv");
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
+            link.href = URL.createObjectURL(blob);
+            link.download = "靈修會報名名冊.csv";
             link.click();
-            document.body.removeChild(link);
-        }
+        };
 
-        // 初始渲染
-        renderList();
+        function showStatus(msg, type) {
+            const el = document.getElementById('statusMsg');
+            el.innerHTML = `<i data-lucide="${type === 'success' ? 'check-circle-2' : 'alert-circle'}" class="w-5 h-5"></i><span>${msg}</span>`;
+            el.className = `mt-4 p-3 rounded-lg flex items-center gap-2 text-sm fade-in ${type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`;
+            el.classList.remove('hidden');
+            lucide.createIcons();
+            setTimeout(() => el.classList.add('hidden'), 3000);
+        }
     </script>
 </body>
 </html>
