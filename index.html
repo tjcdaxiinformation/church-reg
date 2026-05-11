@@ -21,74 +21,68 @@
             .print-container { box-shadow: none !important; border: none !important; max-width: none !important; width: 100% !important; }
         }
         .print-only { display: none; }
-        .spin { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="bg-stone-100 min-h-screen py-4 px-3 sm:py-8 sm:px-6">
+<body class="bg-stone-100 min-h-screen py-4 px-3 sm:py-8 sm:px-6 text-slate-800">
 
     <div class="max-w-md mx-auto print-container">
-        <!-- 頂部標題卡片 -->
+        <!-- 標題區域 -->
         <div class="bg-emerald-800 text-white rounded-t-2xl p-6 shadow-lg no-print">
             <h1 class="text-2xl font-bold text-center mb-3 text-white">前山牧區事工人員靈修會</h1>
             <div class="space-y-2 text-emerald-100 text-xs sm:text-sm">
                 <div class="flex items-center gap-2 font-bold text-emerald-300">
                     <i data-lucide="calendar" class="w-4 h-4"></i>
-                    <span>5/17（日）08:00-12:00</span>
+                    <span>5/17（日）08:00-12:00於崎頂</span>
                 </div>
                 <div class="flex items-center gap-2 text-yellow-300">
                     <i data-lucide="clock" class="w-4 h-4"></i>
-                    <span>截止：5/14（四）</span>
+                    <span>截止日期：5/14（四）</span>
                 </div>
                 <div class="bg-emerald-900/40 p-3 rounded-lg text-[11px] leading-relaxed border border-emerald-700/30">
-                    <p class="font-bold mb-1 text-emerald-200 uppercase tracking-tighter">參加對象：請本會所有事工人員</p>
-                    <p class="opacity-80">職務同工、領會、教員、領詩、各詩班、領讀、司琴、謝飯、音控、接待、炊事、接送、打掃、團契幹部、插花……等等。</p>
+                    <p class="font-bold mb-1 text-emerald-200">參加對象：請本會所有事工人員</p>
+                    <p class="opacity-80 leading-relaxed">職務同工、領會、教員、領詩、各詩班、領讀、司琴、謝飯、音控、接待、炊事、接送、打掃、團契幹部、插花……等等。</p>
                 </div>
             </div>
         </div>
 
-        <!-- 人數統計區 -->
+        <!-- 統計與連線狀態 -->
         <div class="bg-white px-6 py-8 border-x border-stone-200 text-center no-print relative shadow-sm">
-            <div id="connectionDot" class="absolute top-3 right-4 flex items-center gap-1.5 text-[10px] font-bold text-stone-300 transition-colors">
-                <span id="dotColor" class="w-2 h-2 rounded-full bg-stone-300"></span>
-                <span id="connectionText">等待中</span>
+            <div id="connBadge" class="absolute top-3 right-4 flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold bg-stone-100 text-stone-400 transition-all">
+                <span id="connDot" class="w-2 h-2 rounded-full bg-stone-300"></span>
+                <span id="connLabel">載入中</span>
             </div>
-            <div class="text-stone-400 text-xs font-bold tracking-widest mb-1 uppercase">目前報名總人數</div>
+            <div class="text-stone-400 text-xs font-bold tracking-widest mb-1">目前報名總人數</div>
             <div id="mainCountDisplay" class="text-7xl font-black text-emerald-600 mb-1 tabular-nums">0</div>
-            <div id="statusMsg" class="h-4 text-[11px] font-medium text-emerald-500 overflow-hidden">
-                <!-- 狀態訊息 -->
-            </div>
+            <div id="statusMsg" class="h-4 text-[11px] font-medium text-emerald-500"></div>
         </div>
 
-        <!-- 報名輸入區 -->
+        <!-- 輸入區域 -->
         <div class="bg-white p-6 shadow-md border-x border-stone-200 no-print border-t border-stone-50">
             <form id="regForm" class="space-y-3">
-                <div class="relative">
-                    <input type="text" id="userName" placeholder="請輸入姓名" required
-                        class="w-full px-4 py-4 border-2 border-stone-100 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50/50 outline-none transition-all text-xl text-center font-bold placeholder:font-normal">
-                </div>
+                <input type="text" id="userName" placeholder="請輸入姓名" required
+                    class="w-full px-4 py-4 border-2 border-stone-100 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50/30 outline-none transition-all text-xl text-center font-bold">
                 <button type="submit" id="submitBtn"
-                    class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-200/50 flex items-center justify-center gap-2 transition-all disabled:bg-stone-300 disabled:shadow-none">
-                    <span id="btnText">提交報名</span>
+                    class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">
+                    <span>提交報名</span>
                     <i data-lucide="send" class="w-5 h-5"></i>
                 </button>
             </form>
         </div>
 
-        <!-- 列印專用抬頭 -->
+        <!-- 列印抬頭 -->
         <div class="print-only mb-6 text-center border-b-4 border-emerald-800 pb-4">
             <h1 class="text-3xl font-bold mb-1">前山牧區事工人員靈修會 - 報名名冊</h1>
-            <p class="text-sm">日期：5/17 (日) 08:00-12:00 | 總人數：<span id="printTotalCount">0</span> 人</p>
+            <p class="text-sm">時間：5/17 (日) 08:00-12:00 | 總人數：<span id="printTotalCount">0</span> 人</p>
         </div>
 
-        <!-- 名冊清單區 -->
+        <!-- 名冊區域 -->
         <div class="bg-white rounded-b-2xl shadow-xl border border-stone-200 overflow-hidden">
             <div class="bg-stone-50 px-6 py-4 border-b border-stone-200 flex justify-between items-center no-print">
                 <div class="flex items-center gap-2 text-stone-700 font-bold">
                     <i data-lucide="clipboard-list" class="w-5 h-5 text-emerald-600"></i>
                     <span>詳細名冊</span>
                 </div>
-                <button onclick="window.print()" class="text-xs bg-white border border-stone-200 px-3 py-2 rounded-lg flex items-center gap-1.5 hover:bg-stone-50 shadow-sm transition-all font-medium">
+                <button onclick="window.print()" class="text-xs bg-white border border-stone-200 px-3 py-2 rounded-lg flex items-center gap-1.5 hover:bg-stone-50 transition-all font-medium">
                     <i data-lucide="printer" class="w-4 h-4"></i>
                     列印名冊
                 </button>
@@ -123,50 +117,67 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'daxi-stable-v5';
-        const CACHE_KEY = `daxi_cache_${appId}`;
+        // 安全讀取配置，防止 GitHub 上當機
+        let firebaseConfig = null;
+        let appId = 'daxi-default';
+        try {
+            if (typeof __firebase_config !== 'undefined') {
+                firebaseConfig = JSON.parse(__firebase_config);
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'daxi-stable-v5';
+            }
+        } catch (e) {
+            console.warn("Firebase Config not found, entering local-only mode.");
+        }
 
+        const CACHE_KEY = `daxi_data_${appId}`;
         let registrations = JSON.parse(localStorage.getItem(CACHE_KEY) || "[]");
-        
+        let db = null;
+        let auth = null;
+
+        // 介面元素
         const mainCount = document.getElementById('mainCountDisplay');
         const printTotal = document.getElementById('printTotalCount');
         const container = document.getElementById('listContainer');
         const printBody = document.getElementById('printTableBody');
-        const dot = document.getElementById('dotColor');
-        const connText = document.getElementById('connectionText');
+        const connLabel = document.getElementById('connLabel');
+        const connDot = document.getElementById('connDot');
 
+        // 初始渲染 (秒開)
         lucide.createIcons();
         renderUI();
 
-        // 偵測線上/離線狀態
-        window.addEventListener('online', () => setConnStatus('syncing'));
-        window.addEventListener('offline', () => setConnStatus('offline'));
-
-        signInAnonymously(auth).catch(() => setConnStatus('error'));
-
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
+        // 啟動 Firebase (如果配置存在)
+        if (firebaseConfig) {
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                
                 setConnStatus('syncing');
-                const dataCol = collection(db, 'artifacts', appId, 'public', 'data', 'registrations');
-                onSnapshot(dataCol, (snapshot) => {
-                    const newData = [];
-                    snapshot.forEach(doc => newData.push({ id: doc.id, ...doc.data() }));
-                    newData.sort((a, b) => a.timestamp - b.timestamp);
-                    
-                    registrations = newData;
-                    localStorage.setItem(CACHE_KEY, JSON.stringify(newData));
-                    
-                    setConnStatus('online');
-                    renderUI();
-                }, (err) => setConnStatus('error'));
-            } else {
-                setConnStatus('offline');
+                
+                signInAnonymously(auth).then(() => {
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            const dataCol = collection(db, 'artifacts', appId, 'public', 'data', 'registrations');
+                            onSnapshot(dataCol, (snapshot) => {
+                                const newData = [];
+                                snapshot.forEach(doc => newData.push({ id: doc.id, ...doc.data() }));
+                                newData.sort((a, b) => a.timestamp - b.timestamp);
+                                registrations = newData;
+                                localStorage.setItem(CACHE_KEY, JSON.stringify(newData));
+                                setConnStatus('online');
+                                renderUI();
+                            }, (err) => setConnStatus('error'));
+                        }
+                    });
+                }).catch(() => setConnStatus('error'));
+            } catch (err) {
+                setConnStatus('error');
             }
-        });
+        } else {
+            // 沒有配置，顯示提示
+            setConnStatus('local');
+        }
 
         function renderUI() {
             mainCount.textContent = registrations.length;
@@ -205,30 +216,34 @@
             if (window.lucide) lucide.createIcons();
         }
 
+        // 提交
         document.getElementById('regForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const input = document.getElementById('userName');
             const name = input.value.trim();
-            if (!name || !auth.currentUser) return;
+            if (!name) return;
 
             const now = new Date();
             const dateStr = `${now.getMonth() + 1}/${now.getDate()}`;
             const timeStr = `${dateStr} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
             const docId = Date.now().toString();
 
-            const optimisticData = { id: docId, name, time: timeStr, date: dateStr, timestamp: Date.now() };
-            registrations.push(optimisticData);
-            renderUI();
+            const newReg = { id: docId, name, time: timeStr, date: dateStr, timestamp: Date.now() };
             
+            // 樂觀更新
+            registrations.push(newReg);
+            renderUI();
             input.value = '';
             showStatus("感謝主！你已報名完成。願神記念並越事奉越甘甜！");
 
-            try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registrations', docId), optimisticData);
-            } catch (err) {
-                registrations = registrations.filter(r => r.id !== docId);
-                renderUI();
-                alert("抱歉，目前連線不穩，報名尚未成功，請稍後再試。");
+            if (db && auth.currentUser) {
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registrations', docId), newReg);
+                } catch (err) {
+                    console.error("Firebase save failed");
+                }
+            } else {
+                localStorage.setItem(CACHE_KEY, JSON.stringify(registrations));
             }
         });
 
@@ -236,41 +251,42 @@
             if(!confirm("確定移除這筆報名記錄？")) return;
             registrations = registrations.filter(r => r.id !== id);
             renderUI();
-            try {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registrations', id));
-            } catch (e) {
-                console.error("Delete failed");
+            if (db) {
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registrations', id));
+                } catch (e) {}
+            } else {
+                localStorage.setItem(CACHE_KEY, JSON.stringify(registrations));
             }
         };
 
         function setConnStatus(status) {
             if (status === 'online') {
-                dot.className = "w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]";
-                connText.textContent = "已連線";
-                connText.className = "text-emerald-500";
+                connDot.className = "w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_5px_#10b981]";
+                connLabel.textContent = "已連線雲端";
+                connLabel.parentElement.className = "absolute top-3 right-4 flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 transition-all";
             } else if (status === 'syncing') {
-                dot.className = "w-2 h-2 rounded-full bg-yellow-400 animate-pulse";
-                connText.textContent = "同步中";
-                connText.className = "text-yellow-500 font-bold";
-            } else if (status === 'offline') {
-                dot.className = "w-2 h-2 rounded-full bg-stone-400";
-                connText.textContent = "網路斷開";
-                connText.className = "text-stone-400";
+                connDot.className = "w-2 h-2 rounded-full bg-yellow-400 animate-pulse";
+                connLabel.textContent = "同步中";
+                connLabel.parentElement.className = "absolute top-3 right-4 flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-600 border border-yellow-100 transition-all";
+            } else if (status === 'local') {
+                connDot.className = "w-2 h-2 rounded-full bg-stone-300";
+                connLabel.textContent = "⚠️ 尚未連結雲端";
+                connLabel.parentElement.className = "absolute top-3 right-4 flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold bg-stone-50 text-stone-400 border border-stone-200 transition-all cursor-help";
+                connLabel.parentElement.title = "在 GitHub Pages 上需要設定 Firebase 才能實現跨裝置同步。";
             } else {
-                dot.className = "w-2 h-2 rounded-full bg-red-400";
-                connText.textContent = "連線異常";
-                connText.className = "text-red-500";
+                connDot.className = "w-2 h-2 rounded-full bg-red-400";
+                connLabel.textContent = "連線異常";
+                connLabel.parentElement.className = "absolute top-3 right-4 flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold bg-red-50 text-red-500 border border-red-100 transition-all";
             }
         }
 
         function showStatus(msg) {
             const el = document.getElementById('statusMsg');
             el.innerHTML = `<div class="fade-in">${msg}</div>`;
-            el.classList.remove('hidden');
-            setTimeout(() => el.classList.add('hidden'), 5000);
+            setTimeout(() => el.innerHTML = "", 5000);
         }
     </script>
 </body>
 </html>
 
-```
