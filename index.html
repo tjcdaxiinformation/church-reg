@@ -12,7 +12,6 @@
         .fade-in { animation: fadeIn 0.3s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* 列印樣式優化 */
         @media print {
             .no-print { display: none !important; }
             body { background: white !important; padding: 0 !important; }
@@ -51,7 +50,7 @@
         <div class="bg-white p-8 border-x border-stone-200 text-center no-print">
             <div class="text-stone-500 text-sm mb-1 font-bold">目前報名總人數</div>
             <div id="mainCountDisplay" class="text-6xl font-black text-emerald-600 mb-2">--</div>
-            <p class="text-[10px] text-stone-400">資料已同步至雲端名冊</p>
+            <p id="lastUpdateMsg" class="text-[10px] text-stone-400">正在與雲端連線同步...</p>
         </div>
 
         <!-- 報名輸入區域 (列印隱藏) -->
@@ -65,7 +64,7 @@
                     <i data-lucide="check-circle" class="w-5 h-5"></i>
                 </button>
             </form>
-            <div id="statusMsg" class="hidden mt-3 text-center text-xs font-bold py-2 rounded-lg"></div>
+            <div id="statusMsg" class="hidden mt-3 text-center text-xs font-bold py-3 rounded-xl px-4 leading-relaxed shadow-sm fade-in border"></div>
         </div>
 
         <!-- 列印專用抬頭 (平常隱藏) -->
@@ -83,7 +82,7 @@
             <div class="bg-stone-50 px-6 py-4 border-b border-stone-200 flex justify-between items-center no-print">
                 <div class="flex items-center gap-2 text-stone-700 font-bold">
                     <i data-lucide="book-open" class="w-5 h-5 text-emerald-600"></i>
-                    <span>報名名冊</span>
+                    <span>詳細名冊</span>
                 </div>
                 <button onclick="window.print()" class="text-xs bg-white border border-stone-300 px-3 py-2 rounded-lg flex items-center gap-1.5 hover:bg-stone-100 transition-all shadow-sm">
                     <i data-lucide="printer" class="w-4 h-4"></i>
@@ -93,7 +92,7 @@
 
             <!-- 網頁版名單列表 (列印隱藏) -->
             <div id="listContainer" class="divide-y divide-stone-100 min-h-[100px] no-print">
-                <!-- 名單 -->
+                <div class="p-10 text-center text-stone-300 italic text-sm">正在載入雲端資料...</div>
             </div>
 
             <!-- 列印版專用表格 (平常隱藏) -->
@@ -107,9 +106,7 @@
                             <th style="width: 20%;">簽到</th>
                         </tr>
                     </thead>
-                    <tbody id="printTableBody">
-                        <!-- 動態填充列印內容 -->
-                    </tbody>
+                    <tbody id="printTableBody"></tbody>
                 </table>
             </div>
         </div>
@@ -119,7 +116,7 @@
         </footer>
     </div>
 
-    <!-- Firebase 腳本 -->
+    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -129,23 +126,35 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'daxi-final-v2';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'daxi-final-stable';
 
         let registrations = [];
         lucide.createIcons();
 
-        signInAnonymously(auth).catch(console.error);
+        // 背景登入
+        const initSession = async () => {
+            try {
+                await signInAnonymously(auth);
+            } catch (err) {
+                document.getElementById('lastUpdateMsg').textContent = "連線異常，請重整網頁";
+            }
+        };
+        initSession();
 
+        // 監聽雲端資料
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 const dataCol = collection(db, 'artifacts', appId, 'public', 'data', 'registrations');
                 onSnapshot(dataCol, (snapshot) => {
                     const newData = [];
                     snapshot.forEach(doc => newData.push({ id: doc.id, ...doc.data() }));
-                    // 按時間順序排序（先報名的在前）
+                    // 按時間順序排列（先報名者在前）
                     newData.sort((a, b) => a.timestamp - b.timestamp);
                     registrations = newData;
+                    document.getElementById('lastUpdateMsg').textContent = "已完成同步，名單更新中";
                     renderUI();
+                }, (error) => {
+                    document.getElementById('lastUpdateMsg').textContent = "讀取權限限制中...";
                 });
             }
         });
@@ -155,9 +164,11 @@
             const mainCount = document.getElementById('mainCountDisplay');
             const printTotal = document.getElementById('printTotalCount');
             const printBody = document.getElementById('printTableBody');
+            const lastUpdateMsg = document.getElementById('lastUpdateMsg');
             
             mainCount.textContent = registrations.length;
             printTotal.textContent = registrations.length;
+            lastUpdateMsg.textContent = registrations.length > 0 ? "資料已同步至雲端名冊" : "目前暫無報名資料";
 
             if (registrations.length === 0) {
                 container.innerHTML = `<div class="p-10 text-center text-stone-300 italic text-sm">目前尚無報名資料</div>`;
@@ -165,23 +176,23 @@
                 return;
             }
 
-            // 渲染網頁版列表
-            container.innerHTML = registrations.map((reg, idx) => `
+            // 渲染網頁版列表（最新在最上）
+            container.innerHTML = [...registrations].reverse().map((reg, idx) => `
                 <div class="p-4 flex justify-between items-center bg-white fade-in">
                     <div class="flex items-center gap-4">
-                        <span class="text-stone-300 font-mono text-xs w-4">${idx + 1}</span>
+                        <span class="text-stone-300 font-mono text-xs w-6 text-center">${registrations.length - idx}</span>
                         <div class="font-bold text-stone-800 text-lg">${reg.name}</div>
                     </div>
                     <div class="flex items-center gap-2">
-                        <span class="text-[10px] text-stone-400">${reg.time}</span>
+                        <span class="text-[10px] text-stone-400 tracking-tight">${reg.time}</span>
                         <button onclick="deleteEntry('${reg.id}')" class="text-stone-200 hover:text-red-500 p-2 transition-colors">
                             <i data-lucide="x" class="w-4 h-4"></i>
                         </button>
                     </div>
                 </div>
-            `).reverse().join(''); // 網頁版顯示最新報名在最上
+            `).join('');
 
-            // 渲染列印版表格
+            // 渲染列印版表格（編號順序 1, 2, 3...）
             printBody.innerHTML = registrations.map((reg, idx) => `
                 <tr>
                     <td>${idx + 1}</td>
@@ -200,37 +211,47 @@
             const name = input.value.trim();
             if (!name || !auth.currentUser) return;
 
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+
             const now = new Date();
             const dateStr = `${now.getMonth() + 1}/${now.getDate()}`;
             const timeStr = `${dateStr} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
             const docId = Date.now().toString();
 
             input.value = '';
-            showStatus("報名提交成功！", "bg-green-100", "text-green-700");
+            showStatus("感謝主！你已報名完成。願神記念並越事奉越甘甜！", "bg-green-50", "text-green-700", "border-green-200");
 
             try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registrations', docId), {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'registrations', docId);
+                await setDoc(docRef, {
                     name, 
                     time: timeStr, 
                     date: dateStr,
                     timestamp: Date.now()
                 });
             } catch (err) {
-                showStatus("提交失敗，請檢查網路", "bg-red-100", "text-red-700");
+                showStatus("提交失敗，請檢查網路環境或重整頁面", "bg-red-50", "text-red-700", "border-red-200");
+            } finally {
+                btn.disabled = false;
             }
         });
 
         window.deleteEntry = async (id) => {
             if(!confirm("確定移除此報名記錄？")) return;
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registrations', id));
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registrations', id));
+            } catch (e) {
+                alert("刪除失敗");
+            }
         };
 
-        function showStatus(msg, bg, text) {
+        function showStatus(msg, bg, text, border) {
             const el = document.getElementById('statusMsg');
             el.textContent = msg;
-            el.className = `mt-3 text-center text-xs font-bold py-2 rounded-lg fade-in ${bg} ${text}`;
+            el.className = `mt-3 text-center text-xs font-bold py-3 rounded-xl px-4 leading-relaxed shadow-sm fade-in border ${bg} ${text} ${border}`;
             el.classList.remove('hidden');
-            setTimeout(() => el.classList.add('hidden'), 3000);
+            setTimeout(() => el.classList.add('hidden'), 5000);
         }
     </script>
 </body>
