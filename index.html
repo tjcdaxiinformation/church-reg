@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -31,7 +30,7 @@
     <div class="max-w-md mx-auto print-container">
         <!-- 頂部標題卡片 -->
         <div class="bg-emerald-800 text-white rounded-t-2xl p-6 shadow-lg no-print">
-            <h1 class="text-2xl font-bold text-center mb-3">前山牧區事工人員靈修會</h1>
+            <h1 class="text-2xl font-bold text-center mb-3 text-white">前山牧區事工人員靈修會</h1>
             <div class="space-y-2 text-emerald-100 text-xs sm:text-sm">
                 <div class="flex items-center gap-2 font-bold text-emerald-300">
                     <i data-lucide="calendar" class="w-4 h-4"></i>
@@ -48,11 +47,11 @@
             </div>
         </div>
 
-        <!-- 人數統計區 (優化：即時反應) -->
+        <!-- 人數統計區 -->
         <div class="bg-white px-6 py-8 border-x border-stone-200 text-center no-print relative shadow-sm">
             <div id="connectionDot" class="absolute top-3 right-4 flex items-center gap-1.5 text-[10px] font-bold text-stone-300 transition-colors">
                 <span id="dotColor" class="w-2 h-2 rounded-full bg-stone-300"></span>
-                <span id="connectionText">離線</span>
+                <span id="connectionText">等待中</span>
             </div>
             <div class="text-stone-400 text-xs font-bold tracking-widest mb-1 uppercase">目前報名總人數</div>
             <div id="mainCountDisplay" class="text-7xl font-black text-emerald-600 mb-1 tabular-nums">0</div>
@@ -96,7 +95,7 @@
             </div>
 
             <div id="listContainer" class="divide-y divide-stone-50 max-h-[400px] overflow-y-auto no-print">
-                <!-- 名單會在此快速填入 -->
+                <!-- 名單 -->
             </div>
 
             <div class="print-only p-4">
@@ -119,11 +118,10 @@
         </footer>
     </div>
 
-    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
@@ -132,10 +130,8 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'daxi-stable-v5';
         const CACHE_KEY = `daxi_cache_${appId}`;
 
-        // 初始化變數與讀取快取 (實現秒開)
         let registrations = JSON.parse(localStorage.getItem(CACHE_KEY) || "[]");
-        let isFirstLoad = true;
-
+        
         const mainCount = document.getElementById('mainCountDisplay');
         const printTotal = document.getElementById('printTotalCount');
         const container = document.getElementById('listContainer');
@@ -143,11 +139,13 @@
         const dot = document.getElementById('dotColor');
         const connText = document.getElementById('connectionText');
 
-        // 立即初次渲染
         lucide.createIcons();
         renderUI();
 
-        // 登入
+        // 偵測線上/離線狀態
+        window.addEventListener('online', () => setConnStatus('syncing'));
+        window.addEventListener('offline', () => setConnStatus('offline'));
+
         signInAnonymously(auth).catch(() => setConnStatus('error'));
 
         onAuthStateChanged(auth, (user) => {
@@ -164,8 +162,9 @@
                     
                     setConnStatus('online');
                     renderUI();
-                    isFirstLoad = false;
                 }, (err) => setConnStatus('error'));
+            } else {
+                setConnStatus('offline');
             }
         });
 
@@ -179,23 +178,21 @@
                 return;
             }
 
-            // 網頁列表 (最新在頂部)
             container.innerHTML = [...registrations].reverse().map((reg, idx) => `
-                <div class="p-4 flex justify-between items-center bg-white hover:bg-stone-50 transition-colors fade-in">
+                <div class="p-4 flex justify-between items-center bg-white hover:bg-stone-50 transition-colors fade-in border-b border-stone-50">
                     <div class="flex items-center gap-4">
                         <span class="text-stone-300 font-mono text-[10px] w-6 text-center">${registrations.length - idx}</span>
                         <div class="font-bold text-stone-800 text-lg">${reg.name}</div>
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="text-[10px] text-stone-400 tracking-tighter">${reg.time}</span>
-                        <button onclick="deleteEntry('${reg.id}')" class="text-stone-200 hover:text-red-400 p-2 transition-colors">
+                        <button onclick="deleteEntry('${reg.id}')" class="text-stone-200 hover:text-red-400 p-2 transition-colors no-print">
                             <i data-lucide="x" class="w-4 h-4"></i>
                         </button>
                     </div>
                 </div>
             `).join('');
 
-            // 列印表格
             printBody.innerHTML = registrations.map((reg, idx) => `
                 <tr>
                     <td>${idx + 1}</td>
@@ -208,7 +205,6 @@
             if (window.lucide) lucide.createIcons();
         }
 
-        // 樂觀提交功能
         document.getElementById('regForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const input = document.getElementById('userName');
@@ -220,7 +216,6 @@
             const timeStr = `${dateStr} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
             const docId = Date.now().toString();
 
-            // 1. 樂觀更新：立刻修改本地數據，讓使用者感覺「秒刷頻」
             const optimisticData = { id: docId, name, time: timeStr, date: dateStr, timestamp: Date.now() };
             registrations.push(optimisticData);
             renderUI();
@@ -228,26 +223,23 @@
             input.value = '';
             showStatus("感謝主！你已報名完成。願神記念並越事奉越甘甜！");
 
-            // 2. 背景傳送至 Firebase
             try {
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registrations', docId), optimisticData);
             } catch (err) {
-                // 如果失敗則從本地移除 (這在極端網路斷開時才會發生)
                 registrations = registrations.filter(r => r.id !== docId);
                 renderUI();
-                alert("報名上傳失敗，請確認網路後再試。");
+                alert("抱歉，目前連線不穩，報名尚未成功，請稍後再試。");
             }
         });
 
         window.deleteEntry = async (id) => {
             if(!confirm("確定移除這筆報名記錄？")) return;
-            // 同樣進行樂觀移除
             registrations = registrations.filter(r => r.id !== id);
             renderUI();
             try {
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registrations', id));
             } catch (e) {
-                alert("移除失敗");
+                console.error("Delete failed");
             }
         };
 
@@ -259,10 +251,14 @@
             } else if (status === 'syncing') {
                 dot.className = "w-2 h-2 rounded-full bg-yellow-400 animate-pulse";
                 connText.textContent = "同步中";
-                connText.className = "text-yellow-500";
+                connText.className = "text-yellow-500 font-bold";
+            } else if (status === 'offline') {
+                dot.className = "w-2 h-2 rounded-full bg-stone-400";
+                connText.textContent = "網路斷開";
+                connText.className = "text-stone-400";
             } else {
                 dot.className = "w-2 h-2 rounded-full bg-red-400";
-                connText.textContent = "連線失敗";
+                connText.textContent = "連線異常";
                 connText.className = "text-red-500";
             }
         }
