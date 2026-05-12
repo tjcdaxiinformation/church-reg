@@ -113,26 +113,15 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // --- 設定區 ---
+        // 請將您的 Google Apps Script 部署網址貼在下方引號內
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxZWVK2xcO3CzWtJcXcbXtKrncVVM8cwfJX6oYxN2VDLu6QeyTqm1RPkmeN1J5RzIY66g/exec"; 
+        // --------------
 
-        // 安全讀取配置，防止 GitHub 上當機
-        let firebaseConfig = null;
-        let appId = 'daxi-default';
-        try {
-            if (typeof __firebase_config !== 'undefined') {
-                firebaseConfig = JSON.parse(__firebase_config);
-                appId = typeof __app_id !== 'undefined' ? __app_id : 'daxi-stable-v5';
-            }
-        } catch (e) {
-            console.warn("Firebase Config not found, entering local-only mode.");
-        }
-
-        const CACHE_KEY = `daxi_data_${appId}`;
+        const APP_ID = 'daxi-stable-v5';
+        const CACHE_KEY = `daxi_data_${APP_ID}`;
+        
         let registrations = JSON.parse(localStorage.getItem(CACHE_KEY) || "[]");
-        let db = null;
-        let auth = null;
 
         // 介面元素
         const mainCount = document.getElementById('mainCountDisplay');
@@ -145,38 +134,34 @@
         // 初始渲染 (秒開)
         lucide.createIcons();
         renderUI();
+        checkConnection();
 
-        // 啟動 Firebase (如果配置存在)
-        if (firebaseConfig) {
+        // 檢查連線狀態並嘗試從 Google Sheet 同步
+        async function checkConnection() {
+            if (!GOOGLE_SCRIPT_URL) {
+                setConnStatus('local');
+                return;
+            }
+
+            setConnStatus('syncing');
             try {
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-                
-                setConnStatus('syncing');
-                
-                signInAnonymously(auth).then(() => {
-                    onAuthStateChanged(auth, (user) => {
-                        if (user) {
-                            const dataCol = collection(db, 'artifacts', appId, 'public', 'data', 'registrations');
-                            onSnapshot(dataCol, (snapshot) => {
-                                const newData = [];
-                                snapshot.forEach(doc => newData.push({ id: doc.id, ...doc.data() }));
-                                newData.sort((a, b) => a.timestamp - b.timestamp);
-                                registrations = newData;
-                                localStorage.setItem(CACHE_KEY, JSON.stringify(newData));
-                                setConnStatus('online');
-                                renderUI();
-                            }, (err) => setConnStatus('error'));
-                        }
-                    });
-                }).catch(() => setConnStatus('error'));
+                // 嘗試獲取最新名單
+                const response = await fetch(GOOGLE_SCRIPT_URL);
+                if (response.ok) {
+                    const cloudData = await response.json();
+                    if (Array.isArray(cloudData)) {
+                        registrations = cloudData;
+                        localStorage.setItem(CACHE_KEY, JSON.stringify(registrations));
+                        renderUI();
+                    }
+                    setConnStatus('online');
+                } else {
+                    setConnStatus('error');
+                }
             } catch (err) {
+                console.error("Fetch failed:", err);
                 setConnStatus('error');
             }
-        } else {
-            // 沒有配置，顯示提示
-            setConnStatus('local');
         }
 
         function renderUI() {
@@ -230,54 +215,67 @@
 
             const newReg = { id: docId, name, time: timeStr, date: dateStr, timestamp: Date.now() };
             
-            // 樂觀更新
+            // 樂觀更新 (立即顯示)
             registrations.push(newReg);
             renderUI();
             input.value = '';
             showStatus("感謝主！你已報名完成。願神記念並越事奉越甘甜！");
 
-            if (db && auth.currentUser) {
+            // 同步到 Google Sheet
+            if (GOOGLE_SCRIPT_URL) {
                 try {
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registrations', docId), newReg);
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors', // 重要：避免跨網域問題
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newReg)
+                    });
+                    setConnStatus('online');
                 } catch (err) {
-                    console.error("Firebase save failed");
+                    console.error("Save to Google Sheet failed");
+                    setConnStatus('error');
                 }
-            } else {
-                localStorage.setItem(CACHE_KEY, JSON.stringify(registrations));
             }
+            
+            localStorage.setItem(CACHE_KEY, JSON.stringify(registrations));
         });
 
         window.deleteEntry = async (id) => {
             if(!confirm("確定移除這筆報名記錄？")) return;
             registrations = registrations.filter(r => r.id !== id);
             renderUI();
-            if (db) {
+            
+            if (GOOGLE_SCRIPT_URL) {
                 try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'registrations', id));
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        body: JSON.stringify({ action: 'DELETE', id: id })
+                    });
                 } catch (e) {}
-            } else {
-                localStorage.setItem(CACHE_KEY, JSON.stringify(registrations));
             }
+            localStorage.setItem(CACHE_KEY, JSON.stringify(registrations));
         };
 
         function setConnStatus(status) {
+            const badge = connLabel.parentElement;
             if (status === 'online') {
                 connDot.className = "w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_5px_#10b981]";
-                connLabel.textContent = "已連線雲端";
-                connLabel.parentElement.className = "absolute top-3 right-4 flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 transition-all";
+                connLabel.textContent = "已連線試算表";
+                badge.className = "absolute top-3 right-4 flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 transition-all";
             } else if (status === 'syncing') {
                 connDot.className = "w-2 h-2 rounded-full bg-yellow-400 animate-pulse";
                 connLabel.textContent = "同步中";
-                connLabel.parentElement.className = "absolute top-3 right-4 flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-600 border border-yellow-100 transition-all";
+                badge.className = "absolute top-3 right-4 flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-600 border border-yellow-100 transition-all";
             } else if (status === 'local') {
                 connDot.className = "w-2 h-2 rounded-full bg-stone-300";
-                connLabel.textContent = "⚠️ 尚未連結雲端";
-                connLabel.parentElement.className = "absolute top-3 right-4 flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold bg-stone-50 text-stone-400 border border-stone-200 transition-all cursor-help";
-                connLabel.parentElement.title = "在 GitHub Pages 上需要設定 Firebase 才能實現跨裝置同步。";
+                connLabel.textContent = "⚠️ 尚未連結試算表";
+                badge.className = "absolute top-3 right-4 flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold bg-stone-50 text-stone-400 border border-stone-200 transition-all cursor-help";
+                badge.title = "請在程式碼中填入 GOOGLE_SCRIPT_URL 網址。";
             } else {
                 connDot.className = "w-2 h-2 rounded-full bg-red-400";
                 connLabel.textContent = "連線異常";
-                connLabel.parentElement.className = "absolute top-3 right-4 flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold bg-red-50 text-red-500 border border-red-100 transition-all";
+                badge.className = "absolute top-3 right-4 flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold bg-red-50 text-red-500 border border-red-100 transition-all";
             }
         }
 
